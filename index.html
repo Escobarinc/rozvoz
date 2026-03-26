@@ -132,6 +132,7 @@ textarea{min-height:110px;}
 <div class="tabs">
   <div class="tab on" data-t="vI" onclick="sw('vI')">📦 Zadání</div>
   <div class="tab" data-t="vR" onclick="sw('vR')">🗺️ Trasa</div>
+  <div class="tab" data-t="vM" onclick="sw('vM')">🗺 Mapa</div>
 </div>
 
 <div class="vw on" id="vI">
@@ -192,9 +193,12 @@ Havlíčkova 1496 Rychnov nad Kněžnou 516 01"></textarea>
     <button class="ab" style="color:#ff7070" onclick="clearAll()">🗑 Smazat vše</button>
   </div>
   <div class="sl" id="sL"></div>
-  <div class="map-wrap">
-    <div class="map-empty" id="mapEmpty">🗺️ Zpracuj zásilky pro zobrazení mapy</div>
-    <div id="map"></div>
+</div>
+
+<div class="vw" id="vM">
+  <div class="map-wrap" style="height:calc(100vh - 88px)">
+    <div class="map-empty" id="mapEmpty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--tx2)">🗺️ Zpracuj zásilky pro zobrazení mapy</div>
+    <div id="map" style="height:100%"></div>
   </div>
 </div>
 
@@ -279,7 +283,7 @@ function sw(t){
   document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x.dataset.t===t);});
   document.querySelectorAll('.vw').forEach(function(v){v.classList.remove('on');});
   $(t).classList.add('on');
-  if(t==='vR'&&map)setTimeout(function(){map.invalidateSize();},100);
+  if((t==='vR'||t==='vM')&&map)setTimeout(function(){map.invalidateSize();},100);
 }
 
 // ===== OCR =====
@@ -358,14 +362,28 @@ function geoN(q){
 }
 
 async function geocode(addr){
-  var clean=addr.replace(/\s+/g,' ').trim();
+  var clean=addr.replace(/\t/g,' ').replace(/\s+/g,' ').trim();
+  // Expand common abbreviations
+  clean=clean.replace(/RYCHNOV NAD KN\./gi,'Rychnov nad Kněžnou');
+  clean=clean.replace(/\bKN\./gi,'Kněžnou');
   var noPsc=clean.replace(/\d{3}\s\d{2}/,'').trim();
-  var c=await geoP(clean);if(c)return c;
-  c=await geoP(noPsc);if(c)return c;
-  await sl(200);
-  c=await geoN(clean+', Česká republika');if(c)return c;
-  await sl(200);
+  // Extract just street+number (first part before city)
+  var parts=noPsc.split(/\s{2,}|,/);
+  var streetOnly=parts[0].trim();
+  var c;
+  // Nominatim first - better for Czech addresses
   c=await geoN(noPsc+', Česká republika');if(c)return c;
+  await sl(1000);
+  c=await geoN(clean+', Česká republika');if(c)return c;
+  await sl(1000);
+  // Try street only without city
+  if(streetOnly && streetOnly!==noPsc){
+    c=await geoN(streetOnly+', Česká republika');if(c)return c;
+    await sl(1000);
+  }
+  // Photon as fallback
+  c=await geoP(noPsc);if(c)return c;
+  c=await geoP(clean);if(c)return c;
   return null;
 }
 
@@ -378,24 +396,9 @@ function dist(a,b){
 // ===== 2-OPT =====
 function optimizeRoute(pts,dep){
   if(pts.length<=1)return pts;
-  var unvisited=pts.slice(),route=[],cur=dep;
-  while(unvisited.length){
-    var best=0,bestD=Infinity;
-    for(var k=0;k<unvisited.length;k++){var d=dist(cur,unvisited[k].coords);if(d<bestD){bestD=d;best=k;}}
-    route.push(unvisited[best]);cur=unvisited[best].coords;unvisited.splice(best,1);
-  }
-  var improved=true;
-  while(improved){
-    improved=false;
-    for(var i=0;i<route.length-1;i++){
-      for(var j=i+1;j<route.length;j++){
-        var b=dist(i===0?dep:route[i-1].coords,route[i].coords)+dist(route[j].coords,j+1<route.length?route[j+1].coords:dep);
-        var a=dist(i===0?dep:route[i-1].coords,route[j].coords)+dist(route[i].coords,j+1<route.length?route[j+1].coords:dep);
-        if(a<b-0.01){route=route.slice(0,i).concat(route.slice(i,j+1).reverse()).concat(route.slice(j+1));improved=true;}
-      }
-    }
-  }
-  return route;
+  return pts.slice().sort(function(a,b){
+    return dist(dep,a.coords)-dist(dep,b.coords);
+  });
 }
 
 // ===== OV/TOAST =====
