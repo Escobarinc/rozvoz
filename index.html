@@ -363,27 +363,39 @@ function geoN(q){
 
 async function geocode(addr){
   var clean=addr.replace(/\t/g,' ').replace(/\s+/g,' ').trim();
-  // Expand common abbreviations
+  // Add comma before PSC if missing: "Čestice 176 517 41" → "Čestice 176, 517 41"
+  clean=clean.replace(/([^\s,])(\s+\d{3}\s\d{2})/g,'$1,$2');
+  clean=clean.replace(/([^\s,])(\s+\d{5})/g,'$1,$2');
   clean=clean.replace(/RYCHNOV NAD KN\./gi,'Rychnov nad Kněžnou');
   clean=clean.replace(/\bKN\./gi,'Kněžnou');
+  // Extract PSC
+  var pscMatch=clean.match(/(\d{3}\s?\d{2})/);
+  var psc=pscMatch?pscMatch[1].replace(/\s/,''):'';
   var noPsc=clean.replace(/\d{3}\s\d{2}/,'').trim();
-  // Extract just street+number (first part before city)
-  var parts=noPsc.split(/\s{2,}|,/);
+  // Street/village = first part before multiple spaces or tabs
+  var parts=noPsc.split(/\s{2,}|\t/);
   var streetOnly=parts[0].trim();
+  // Limit to max 3 words
+  var sw=streetOnly.split(' ');
+  if(sw.length>3)streetOnly=sw.slice(0,3).join(' ');
   var c;
-  // Nominatim first - better for Czech addresses
-  c=await geoN(noPsc+', Česká republika');if(c)return c;
-  await sl(1000);
-  c=await geoN(clean+', Česká republika');if(c)return c;
-  await sl(1000);
-  // Try street only without city
-  if(streetOnly && streetOnly!==noPsc){
+  // 1. Street + PSC — most precise, PSC identifies exact municipality
+  if(streetOnly && psc){
+    var pscFormatted=psc.slice(0,3)+' '+psc.slice(3);
+    c=await geoN(streetOnly+', '+pscFormatted);if(c)return c;
+    await sl(1000);
+    c=await geoN(streetOnly+' '+pscFormatted+', Česká republika');if(c)return c;
+    await sl(1000);
+  }
+  // 2. Street only
+  if(streetOnly){
     c=await geoN(streetOnly+', Česká republika');if(c)return c;
     await sl(1000);
   }
-  // Photon as fallback
+  // 3. Full address without PSC
+  c=await geoN(noPsc+', Česká republika');if(c)return c;
+  await sl(1000);
   c=await geoP(noPsc);if(c)return c;
-  c=await geoP(clean);if(c)return c;
   return null;
 }
 
