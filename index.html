@@ -236,25 +236,39 @@ function sw(t){
   $(t).classList.add('on');
 }
 
-// ===== PDF LOADING - extract text directly =====
+// ===== PDF LOADING =====
 async function loadPDF(inp){
   const file=inp.files[0];if(!file)return;
   const status=$('pdfStatus');
   status.style.display='block';
-  status.textContent='📄 Čtu PDF...';
+  status.textContent='📄 Načítám PDF.js...';
   try{
-    const text=await file.text();
-    const addrs=parseAddresses(text);
-    if(addrs.length>0){
-      $('pI').value=addrs.join('\n');
-      status.textContent='✓ '+addrs.length+' adres načteno';
-      toast(addrs.length+' adres načteno!');
-    } else {
-      status.textContent='⚠️ Nenalezeny adresy — vlož text ručně';
-      toast('Vlož adresy ručně do textového pole');
+    // Load PDF.js dynamically
+    if(typeof pdfjsLib==='undefined'){
+      await new Promise((resolve,reject)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload=resolve;s.onerror=reject;
+        document.head.appendChild(s);
+      });
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
+    status.textContent='📄 Čtu PDF...';
+    const buf=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let fullText='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      fullText+=content.items.map(item=>item.str).join(' ')+'\n';
+    }
+    const addrs=parseAddresses(fullText);
+    $('pI').value=addrs.join('\n');
+    status.textContent='✓ '+addrs.length+' adres načteno';
+    toast(addrs.length+' adres načteno!');
   }catch(e){
-    status.textContent='Chyba — vlož adresy ručně';
+    status.textContent='Chyba PDF — vlož adresy ručně';
+    console.error(e);
   }
 }
 
