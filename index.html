@@ -4,10 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>One by Allegro — Route Optimizer</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap');
 :root{
@@ -17,7 +13,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;}
-.hdr{background:var(--bg2);border-bottom:1px solid var(--br);padding:10px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:1000;}
+.hdr{background:var(--bg2);border-bottom:1px solid var(--br);padding:10px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;}
 .logo{width:38px;height:38px;flex-shrink:0;background:linear-gradient(135deg,var(--gd),var(--g));border-radius:10px;display:flex;align-items:center;justify-content:center;}
 .logo svg{width:22px;height:22px;}
 .ltxt{display:flex;flex-direction:column;line-height:1.2;}
@@ -94,10 +90,7 @@ textarea{min-height:110px;}
 .ck{width:22px;height:22px;border:2px solid var(--br);border-radius:6px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .st.done .ck{background:var(--g);border-color:var(--g);}
 .st.done .ck::after{content:'✓';font-size:11px;font-weight:700;color:#fff;}
-/* MAPA */
-#map{height:250px;width:100%;margin-bottom:10px;border-bottom:1px solid var(--br);z-index:10;}
-
-.np{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;align-items:flex-end;justify-content:center;}
+.np{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99;display:none;align-items:flex-end;justify-content:center;}
 .np.on{display:flex;}
 .ni{background:var(--bg2);border-radius:20px 20px 0 0;padding:18px 14px 30px;width:100%;max-width:440px;}
 .ni h3{font-size:14px;font-weight:800;text-align:center;margin-bottom:5px;}
@@ -107,14 +100,14 @@ textarea{min-height:110px;}
 .no .nn{font-size:13px;font-weight:700;}
 .no .ns{font-size:11px;color:var(--tx2);}
 .nc{width:100%;padding:10px;background:var(--bg3);border:1px solid var(--br);border-radius:10px;color:var(--tx2);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;}
-.ov{position:fixed;inset:0;background:rgba(12,17,23,.93);z-index:9998;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+.ov{position:fixed;inset:0;background:rgba(12,17,23,.93);z-index:98;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
 .ov.on{display:flex;}
 .sp{width:38px;height:38px;border:3px solid var(--br);border-top-color:var(--g);border-radius:50%;animation:sp .8s linear infinite;}
 @keyframes sp{to{transform:rotate(360deg);}}
 .ot{font-size:13px;font-weight:600;color:var(--tx2);text-align:center;max-width:260px;}
 .obg{width:220px;height:4px;background:var(--bg3);border-radius:2px;}
 .ob{height:4px;background:linear-gradient(90deg,var(--g),var(--gl));border-radius:2px;transition:width .4s;}
-.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--bg3);border:1px solid var(--g);border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--tx);transition:.3s;z-index:9999;opacity:0;white-space:nowrap;}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--bg3);border:1px solid var(--g);border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--tx);transition:.3s;z-index:99;opacity:0;white-space:nowrap;}
 .toast.on{transform:translateX(-50%) translateY(0);opacity:1;}
 </style>
 </head>
@@ -148,23 +141,56 @@ textarea{min-height:110px;}
 <div class="vw on" id="vI">
 <div class="body">
   <div id="fw"></div>
-  <div class="card"><div class="ch"><div class="ci g">🚗</div><div><h3>Řidič</h3><p>Zobrazí se pod logem</p></div></div><div class="cb"><input id="dN" placeholder="Jméno řidiče..." oninput="document.getElementById('hdrD').textContent=this.value.trim()?'🚗 '+this.value.trim():'';saveState();"></div></div>
-  <div class="card"><div class="ch"><div class="ci o">📍</div><div><h3>Depo</h3><p>Výchozí adresa</p></div></div><div class="cb"><input id="dep" value="Dvořská 161/57, Hradec Králové" onchange="saveState()"></div></div>
-  <div class="card"><div class="ch"><div class="ci o">📄</div><div><h3>Nahrát PDF se zásilkami</h3><p>Automaticky přečte adresy</p></div></div><div class="cb"><div class="upz" onclick="$('pdfIn').click()"><p>📄 <b>Klikni pro výběr PDF</b></p><p style="margin-top:4px">nebo přetáhni soubor sem</p></div><input type="file" id="pdfIn" accept=".pdf" style="display:none" onchange="loadPDF(this)"><div class="pdf-status" id="pdfStatus"></div></div></div>
-  <div class="card"><div class="ch"><div class="ci g">📋</div><div><h3>Zásilky</h3><p>1 řádek = 1 adresa</p></div></div><div class="cb"><div class="field"><textarea id="pI" placeholder="Vlož adresy..." onchange="saveState()"></textarea></div></div></div>
-  <div class="card" id="editCard" style="display:none"><div class="ch"><div class="ci g">✏️</div><div><h3>Zkontroluj adresy</h3></div></div><div class="cb" style="padding:8px 14px"><div id="editList"></div></div></div>
+
+  <div class="card">
+    <div class="ch"><div class="ci g">🚗</div><div><h3>Řidič</h3><p>Zobrazí se pod logem</p></div></div>
+    <div class="cb"><input id="dN" placeholder="Jméno řidiče..." oninput="document.getElementById('hdrD').textContent=this.value.trim()?'🚗 '+this.value.trim():''"></div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><div class="ci o">📍</div><div><h3>Depo</h3><p>Výchozí adresa</p></div></div>
+    <div class="cb"><input id="dep" value="Dvořská 161/57, Hradec Králové"></div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><div class="ci o">📄</div><div><h3>Nahrát PDF se zásilkami</h3><p>Automaticky přečte adresy z tabulky</p></div></div>
+    <div class="cb">
+      <div class="upz" onclick="document.getElementById('pdfIn').click()">
+        <p>📄 <b>Klikni pro výběr PDF</b></p>
+        <p style="margin-top:4px">nebo přetáhni soubor sem</p>
+      </div>
+      <input type="file" id="pdfIn" accept=".pdf" style="display:none" onchange="loadPDF(this)">
+      <div class="pdf-status" id="pdfStatus"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><div class="ci g">📋</div><div><h3>Zásilky</h3><p>Nebo vlož adresy ručně — 1 řádek = 1 adresa</p></div></div>
+    <div class="cb">
+      <div class="field">
+        <textarea id="pI" placeholder="Komenského 101 Týniště nad Orlicí 517 21
+Vrchlického 642 Týniště nad Orlicí 517 21
+Havlíčkova 1496 Rychnov nad Kněžnou 516 01"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="editCard" style="display:none">
+    <div class="ch"><div class="ci g">✏️</div><div><h3>Zkontroluj adresy</h3><p>Uprav nebo smaž před optimalizací</p></div></div>
+    <div class="cb" style="padding:8px 14px"><div id="editList"></div></div>
+  </div>
+
   <button class="go" id="goBtn" onclick="go()">⚡ Optimalizovat trasu</button>
-  <button class="btn s" style="width:100%;margin-top:8px;" onclick="clearState()">🗑️ Vymazat vše</button>
 </div>
 </div>
 
 <div class="vw" id="vR">
-  <div id="map"></div>
   <div class="rh"><h3 id="rT">Trasa</h3><div class="rm" id="rM"></div></div>
   <div class="ract">
-    <button class="ab nf" onclick="downloadGPX()">📥 GPX (Mapy.cz)</button>
-    <button class="ab" onclick="aktualizovat()">🔄 Přerovnat</button>
-    <button class="ab" onclick="copyAll()">📋 Text</button>
+    <button class="ab nf" onclick="navAll()">🗺️ Nav vše</button>
+    <button class="ab nf" onclick="exportGPX()">📥 GPX Mapy.cz</button>
+    <button class="ab" onclick="aktualizovat()">🔄 Aktualizovat</button>
+    <button class="ab" onclick="copyAll()">📋 Kopírovat</button>
     <button class="ab" onclick="resetD()">↺ Reset</button>
   </div>
   <div class="sl" id="sL"></div>
@@ -176,7 +202,7 @@ textarea{min-height:110px;}
     <div class="nd" id="nDst"></div>
     <a class="no" id="nG" href="#" target="_blank" onclick="cNav()">
       <div class="ic" style="background:rgba(34,197,94,.1)">🟢</div>
-      <div><div class="nn">Google Maps</div><div class="ns">Navigace</div></div>
+      <div><div class="nn">Google Maps</div><div class="ns">Navigace s dopravou</div></div>
     </a>
     <a class="no" id="nMp" href="#" target="_blank" onclick="cNav()">
       <div class="ic" style="background:rgba(59,130,246,.1)">🔵</div>
@@ -184,222 +210,404 @@ textarea{min-height:110px;}
     </a>
     <a class="no" id="nW" href="#" target="_blank" onclick="cNav()">
       <div class="ic" style="background:rgba(168,85,247,.1)">🟣</div>
-      <div><div class="nn">Waze</div><div class="ns">Komunita</div></div>
+      <div><div class="nn">Waze</div><div class="ns">Komunitní navigace</div></div>
     </a>
     <button class="nc" onclick="cNav()">Zavřít</button>
   </div>
 </div>
 
-<div class="ov" id="ov"><div class="sp"></div><div class="ot" id="oT">Zpracovávám...</div><div class="obg"><div class="ob" id="oB" style="width:0%"></div></div></div>
+<div class="ov" id="ov">
+  <div class="sp"></div>
+  <div class="ot" id="oT">Zpracovávám...</div>
+  <div class="obg"><div class="ob" id="oB" style="width:0%"></div></div>
+</div>
 <div class="toast" id="tst"></div>
 
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// PDF.js worker init - not needed, using FileReader
 const $=id=>document.getElementById(id);
 const ROAD=1.35;
-let stops=[],done=0,depot={lat:50.1862,lng:15.8628},map,markers=[];
+let stops=[],done=0,depot={lat:50.1862,lng:15.8628};
 let _geo=[],_failed=[],_depot={lat:50.1862,lng:15.8628};
 
 function sw(t){
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));
   document.querySelectorAll('.vw').forEach(v=>v.classList.remove('on'));
   $(t).classList.add('on');
-  if(t==='vR' && map) setTimeout(()=>map.invalidateSize(), 200);
 }
 
-// ===== AUTO-SAVE LOGIC =====
-function saveState(){
-  const data = {
-    dN: $('dN').value,
-    dep: $('dep').value,
-    pI: $('pI').value,
-    stops: stops,
-    done: done,
-    _geo: _geo,
-    _depot: _depot
-  };
-  localStorage.setItem('one_allegro_state', JSON.stringify(data));
-}
-
-function loadState(){
-  const raw = localStorage.getItem('one_allegro_state');
-  if(!raw) return;
-  const data = JSON.parse(raw);
-  $('dN').value = data.dN || '';
-  $('hdrD').textContent = data.dN ? '🚗 '+data.dN : '';
-  $('dep').value = data.dep || '';
-  $('pI').value = data.pI || '';
-  stops = data.stops || [];
-  done = data.done || 0;
-  _geo = data._geo || [];
-  _depot = data._depot || {lat:50.1862,lng:15.8628};
-  if(stops.length > 0) {
-    const n = stops.length;
-    $('sPkg').textContent=n; $('sSt').textContent=n; $('sDone').textContent=done;
-    render();
-  }
-}
-
-function clearState(){
-  if(confirm('Opravdu vymazat všechna data?')) {
-    localStorage.removeItem('one_allegro_state');
-    location.reload();
-  }
-}
-
-// ===== PDF & GEO (BEZE ZMĚN) =====
+// ===== PDF LOADING - extract text directly =====
 async function loadPDF(inp){
   const file=inp.files[0];if(!file)return;
-  const status=$('pdfStatus'); status.style.display='block'; status.textContent='📄 Čtu PDF...';
+  const status=$('pdfStatus');
+  status.style.display='block';
+  status.textContent='📄 Čtu PDF...';
   try{
-    const buf=await file.arrayBuffer();
-    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-    let fullText='';
-    for(let i=1;i<=pdf.numPages;i++){
-      const page=await pdf.getPage(i);
-      const content=await page.getTextContent();
-      fullText+=content.items.map(item=>item.str).join(' ')+'\n';
+    const text=await file.text();
+    const addrs=parseAddresses(text);
+    if(addrs.length>0){
+      $('pI').value=addrs.join('\n');
+      status.textContent='✓ '+addrs.length+' adres načteno';
+      toast(addrs.length+' adres načteno!');
+    } else {
+      status.textContent='⚠️ Nenalezeny adresy — vlož text ručně';
+      toast('Vlož adresy ručně do textového pole');
     }
-    const addrs=parseAddresses(fullText);
-    $('pI').value=addrs.join('\n');
-    status.textContent='✓ '+addrs.length+' adres načteno';
-    saveState();
-  }catch(e){status.textContent='Chyba PDF';}
+  }catch(e){
+    status.textContent='Chyba — vlož adresy ručně';
+  }
 }
 
+// ===== ADDRESS PARSER =====
+// Splits text into addresses using PSC pattern (3 digits space 2 digits) as delimiter
 function parseAddresses(text){
+  // Normalize whitespace
   const normalized=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  // Find all addresses by splitting on PSC pattern
+  // PSC = \d{3}\s\d{2} e.g. "517 21", "516 01"
   const pscPattern=/\d{3}\s\d{2}/g;
   const matches=[...normalized.matchAll(pscPattern)];
-  if(!matches.length) return normalized.split('\n').map(l=>l.trim()).filter(l=>l.length>5);
+  if(!matches.length){
+    // Fallback: split by newlines
+    return normalized.split('\n').map(l=>l.trim()).filter(l=>l.length>5);
+  }
   const addrs=[];
   for(let i=0;i<matches.length;i++){
     const start=i===0?0:matches[i-1].index+matches[i-1][0].length;
     const end=matches[i].index+matches[i][0].length;
-    addrs.push(normalized.slice(start,end).trim());
+    const chunk=normalized.slice(start,end).trim();
+    if(chunk.length>3)addrs.push(chunk);
   }
-  return [...new Set(addrs)];
+  // Deduplicate — same address only once
+  const seen=new Set();
+  const unique=[];
+  for(const a of addrs){
+    const key=a.toLowerCase().replace(/\s+/g,' ').trim();
+    if(!seen.has(key)){seen.add(key);unique.push(a.replace(/\s+/g,' ').trim());}
+  }
+  return unique;
 }
 
+// ===== GEOCODING =====
 const sl=ms=>new Promise(r=>setTimeout(r,ms));
-async function geocode(q){
+
+async function geoN(q){
   try{
-    const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(q)+'&limit=1&countrycodes=cz');
+    const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(q)+'&limit=1&accept-language=cs&countrycodes=cz');
     const d=await r.json();
     if(d&&d.length)return{lat:+d[0].lat,lng:+d[0].lon};
   }catch(e){}
   return null;
 }
 
+async function geoP(q){
+  try{
+    const r=await fetch('https://photon.komoot.io/api/?q='+encodeURIComponent(q)+'&limit=1&lang=cs&bbox=12.09,48.55,18.86,51.06');
+    const d=await r.json();
+    if(d&&d.features&&d.features.length){const c=d.features[0].geometry.coordinates;return{lat:c[1],lng:c[0]};}
+  }catch(e){}
+  return null;
+}
+
+async function geocode(addr){
+  const clean=addr.replace(/\s+/g,' ').trim();
+  let c=await geoN(clean+', Česká republika');if(c)return c;
+  await sl(200);
+  c=await geoP(clean);if(c)return c;
+  // Try without PSC
+  const noPsc=clean.replace(/\d{3}\s\d{2}/,'').trim();
+  if(noPsc!==clean){
+    c=await geoN(noPsc+', Česká republika');if(c)return c;
+    await sl(200);
+    c=await geoP(noPsc);if(c)return c;
+  }
+  return null;
+}
+
 function dist(a,b){
-  const R=6371, dL=(b.lat-a.lat)*Math.PI/180, dG=(b.lng-a.lng)*Math.PI/180;
+  const R=6371,dL=(b.lat-a.lat)*Math.PI/180,dG=(b.lng-a.lng)*Math.PI/180;
   const x=Math.sin(dL/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dG/2)**2;
   return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
+// ===== ROUTE OPTIMIZATION =====
 function sweep(pts,dep){
   if(pts.length<=1)return pts;
-  const wa=pts.map(p=>({...p,a:Math.atan2(p.coords.lat-dep.lat,p.coords.lng-dep.lng)}));
-  wa.sort((a,b)=>a.a-b.a);
-  return wa;
-}
-
-// ===== MAP LOGIC (LEAFLET) =====
-function initMap(){
-  if(!map){
-    map = L.map('map').setView([50.08, 14.43], 8);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  const wa=pts.map(p=>({...p,a:Math.atan2(p.coords.lat-dep.lat,p.coords.lng-dep.lng)*180/Math.PI}));
+  const sa=wa.reduce((b,p)=>Math.abs(p.a)<Math.abs(b.a)?p:b,wa[0]).a;
+  const nm=wa.map(p=>{let r=p.a-sa;if(r>180)r-=360;if(r<-180)r+=360;return{...p,r};});
+  nm.sort((a,b)=>b.r-a.r);
+  let rt=[...nm],ok=true;
+  while(ok){
+    ok=false;
+    for(let i=0;i<rt.length-1;i++){
+      for(let j=i+1;j<rt.length;j++){
+        const d1=dist(i===0?dep:rt[i-1].coords,rt[i].coords)+dist(rt[j].coords,j+1<rt.length?rt[j+1].coords:dep);
+        const d2=dist(i===0?dep:rt[i-1].coords,rt[j].coords)+dist(rt[i].coords,j+1<rt.length?rt[j+1].coords:dep);
+        if(d2<d1-0.01){rt=rt.slice(0,i).concat(rt.slice(i,j+1).reverse()).concat(rt.slice(j+1));ok=true;}
+      }
+    }
   }
-  markers.forEach(m=>map.removeLayer(m));
-  markers = [];
-  if(!stops.length) return;
-  const pts = [];
-  stops.forEach((s, i)=>{
-    const m = L.marker([s.coords.lat, s.coords.lng]).addTo(map).bindPopup((i+1)+'. '+s.addr);
-    markers.push(m);
-    pts.push([s.coords.lat, s.coords.lng]);
-  });
-  const group = new L.featureGroup(markers);
-  map.fitBounds(group.getBounds().pad(0.1));
+  return rt;
 }
 
-// ===== GPX EXPORT =====
-function downloadGPX(){
-  if(!stops.length) return toast('Žádná data');
-  let gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="OneByAllegro">
-  <metadata><name>Trasa rozvozu</name></metadata>`;
-  stops.forEach((s, i)=>{
-    gpx += `\n  <wpt lat="${s.coords.lat}" lon="${s.coords.lng}"><name>${i+1}. ${s.addr.replace(/[<>&"']/g, '')}</name></wpt>`;
-  });
-  gpx += '\n</gpx>';
-  const blob = new Blob([gpx], {type: 'application/gpx+xml'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'trasa.gpx';
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  toast('GPX připraveno pro Mapy.cz');
-}
-
-// ===== CORE UI FUNCTIONS =====
-async function go(){
-  const raw=$('pI').value.trim().split('\n').filter(l=>l.trim().length>3);
-  if(!raw.length) return toast('Vlož adresy');
-  $('goBtn').disabled=true; sOv('Geokóduji...', 10);
-  const depA=$('dep').value.trim();
-  const dc=await geocode(depA);
-  const dep=dc||{lat:50.1862,lng:15.8628};
-  const gc=[];
-  for(let i=0;i<raw.length;i++){
-    uOv('Adresa '+(i+1)+'/'+raw.length, Math.round(i/raw.length*90));
-    const c=await geocode(raw[i]);
-    if(c) gc.push({addr:raw[i],coords:c});
-    await sl(800);
-  }
-  _geo=gc; _depot=dep; stops=sweep(gc,dep);
-  render(); hOv(); $('goBtn').disabled=false; sw('vR');
-  saveState();
-}
-
-function render(){
-  const l=$('sL'); l.innerHTML='';
-  stops.forEach((s,i)=>{
-    const div=document.createElement('div'); div.className='st'+(s.done?' done':''); div.id='s'+i;
-    div.innerHTML=`<div class="sn">${i+1}</div><div class="sm"><div class="sa">${s.addr}</div><div class="ss"><span class="slo">Naložit: ${stops.length-i}.</span></div></div>
-      <button class="nb" onclick="oNav(${i})">🧭</button><div class="ck" onclick="tog(${i})"></div>`;
-    l.appendChild(div);
-  });
-  initMap();
-  let k=0, p=_depot;
-  stops.forEach(s=>{k+=dist(p,s.coords)*ROAD;p=s.coords;});
-  $('sKm').textContent=Math.round(k);
-}
-
-function tog(i){
-  stops[i].done = !stops[i].done;
-  done = stops.filter(s=>s.done).length;
-  $('sDone').textContent=done;
-  render();
-  saveState();
-}
-
-function oNav(i){
-  const s=stops[i]; if(!s)return;
-  const lat=s.coords.lat, lng=s.coords.lng;
-  $('nDst').textContent=s.addr;
-  $('nG').href=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-  $('nMp').href=`https://mapy.cz/zakladni?q=${lat},${lng}`;
-  $('nW').href=`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
-  $('nP').classList.add('on');
-}
-function cNav(){$('nP').classList.remove('on');}
+// ===== OV / TOAST =====
 function sOv(t,p){$('ov').classList.add('on');$('oT').textContent=t;$('oB').style.width=p+'%';}
 function uOv(t,p){$('oT').textContent=t;$('oB').style.width=p+'%';}
 function hOv(){$('ov').classList.remove('on');}
 function toast(m){const t=$('tst');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2500);}
 
-window.onload = loadState;
+// ===== MAIN GO =====
+async function go(){
+  const raw=$('pI').value.trim().split('\n').map(l=>l.trim()).filter(l=>l.length>3);
+  if(!raw.length){toast('Vlož alespoň jednu adresu');return;}
+
+  // Deduplicate input
+  const seen=new Set();
+  const unique=raw.filter(a=>{const k=a.toLowerCase().replace(/\s+/g,' ');if(seen.has(k))return false;seen.add(k);return true;});
+
+  $('goBtn').disabled=true;
+  sOv('Připravuji...',0);
+  const depA=$('dep').value.trim()||'Dvořská 161/57, Hradec Králové';
+  const gc=[],fail=[];
+  uOv('Hledám depo...',2);
+  const dc=await geocode(depA);
+  const dep=dc||{lat:50.1862,lng:15.8628};
+
+  for(let i=0;i<unique.length;i++){
+    uOv('Geokóduji '+(i+1)+'/'+unique.length+': '+unique[i],Math.round(i/unique.length*85));
+    const c=await geocode(unique[i]);
+    if(c)gc.push({addr:unique[i],coords:c});
+    else fail.push({addr:unique[i]});
+    await sl(1200);
+  }
+
+  hOv();
+  $('goBtn').disabled=false;
+  _geo=[...gc];_failed=[...fail];_depot=dep;
+
+  if(!gc.length){toast('Žádná adresa nenalezena');showFailed(fail,dep);return;}
+  showFailed(fail,dep);
+  showEditList(gc,dep);
+}
+
+// ===== FAILED ADDRESSES =====
+function showFailed(fail,dep){
+  const fw=$('fw');fw.innerHTML='';
+  if(!fail.length)return;
+  const d=document.createElement('div');d.className='fail';
+  d.innerHTML='<h4 id="failTitle">⚠️ '+fail.length+' adres nenalezeno — oprav a geokóduj znovu:</h4>';
+  fail.forEach((f)=>{
+    const key=f.addr.toLowerCase().replace(/\s+/g,'_');
+    const row=document.createElement('div');row.className='fail-row';row.id='fr_'+key;
+    row.innerHTML='<input value="'+f.addr+'" id="fi_'+key+'" placeholder="Oprav adresu..."><button class="regeo-btn" onclick="regeoOne(\''+key+'\')">🔍 Najít</button>';
+    d.appendChild(row);
+  });
+  const btn=document.createElement('button');
+  btn.className='regeo-all';
+  btn.textContent='🔍 Geokóduj všechny opravené';
+  btn.onclick=regeoAll;
+  d.appendChild(btn);
+  fw.appendChild(d);
+}
+
+async function regeoOne(key){
+  const inp=$('fi_'+key);
+  if(!inp)return;
+  const addr=inp.value.trim();
+  if(!addr)return;
+  inp.style.borderColor='var(--or)';
+  inp.disabled=true;
+  const c=await geocode(addr);
+  if(c){
+    _geo.push({addr,coords:c});
+    _failed=_failed.filter(f=>f.addr.toLowerCase().replace(/\s+/g,'_')!==key);
+    const row=$('fr_'+key);if(row)row.remove();
+    // Update counter
+    const title=$('failTitle');
+    if(title)title.textContent='⚠️ '+_failed.length+' adres nenalezeno — oprav a geokóduj znovu:';
+    if(!_failed.length)$('fw').innerHTML='';
+    // Update edit list button
+    $('goBtn').textContent='✅ Potvrdit a optimalizovat ('+_geo.length+')';
+    $('goBtn').onclick=optimize;
+    toast('✓ Nalezeno: '+addr);
+  }else{
+    inp.disabled=false;
+    inp.style.borderColor='#ff4646';
+    toast('Stále nenalezeno — zkus upravit adresu');
+  }
+}
+
+async function regeoAll(){
+  const rows=[...document.querySelectorAll('.fail-row')];
+  for(const row of rows){
+    const key=row.id.replace('fr_','');
+    await regeoOne(key);
+    await sl(1300);
+  }
+}
+
+// ===== EDIT LIST =====
+function showEditList(gc,dep){
+  _geo=[...gc];_depot=dep;
+  const card=$('editCard');card.style.display='block';
+  const list=$('editList');list.innerHTML='';
+  _geo.forEach((p,i)=>{
+    const row=document.createElement('div');row.className='erow';row.id='er'+i;
+    row.innerHTML='<input value="'+p.addr+'" onchange="_geo['+i+'].addr=this.value"><button class="edel" onclick="delEdit('+i+')">🗑</button>';
+    list.appendChild(row);
+  });
+  $('goBtn').textContent='✅ Potvrdit a optimalizovat ('+gc.length+')';
+  $('goBtn').onclick=optimize;
+  // Scroll to top so user sees the button change and edit card
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast('✓ Načteno '+gc.length+' adres — zkontroluj a potvrď');
+}
+
+function delEdit(i){
+  $('er'+i).remove();
+  _geo.splice(i,1);
+  $('goBtn').textContent='✅ Potvrdit a optimalizovat ('+_geo.length+')';
+}
+
+// ===== OPTIMIZE =====
+async function optimize(){
+  if(!_geo.length){toast('Žádné adresy');return;}
+  $('goBtn').disabled=true;
+  sOv('Optimalizuji...',80);await sl(50);
+  stops=sweep(_geo,_depot);
+  done=0;depot=_depot;
+  const n=stops.length;
+  $('sPkg').textContent=n;
+  $('sSt').textContent=n;
+  $('sDone').textContent=0;
+  $('editCard').style.display='none';
+  $('goBtn').textContent='⚡ Optimalizovat trasu';
+  $('goBtn').onclick=go;
+  render();
+  hOv();$('goBtn').disabled=false;sw('vR');
+}
+
+// ===== KM =====
+function calcKm(){
+  let km=0,p=depot;
+  for(let i=0;i<stops.length;i++){
+    const r=$('s'+i);
+    if(r&&r.classList.contains('done'))continue;
+    km+=dist(p,stops[i].coords)*ROAD;p=stops[i].coords;
+  }
+  return km;
+}
+
+// ===== RENDER =====
+function render(){
+  const l=$('sL');l.innerHTML='';
+  const n=stops.length;
+  stops.forEach((s,i)=>{
+    const div=document.createElement('div');div.className='st';div.id='s'+i;
+    div.innerHTML=
+      '<div class="sn">'+(i+1)+'</div>'+
+      '<div class="sm">'+
+        '<div class="sa">'+s.addr+'</div>'+
+        '<div class="ss">'+
+          (s.name?'<span class="snm">👤 '+s.name+'</span>':'')+
+          (s.phone?'<span class="sph">📞 '+s.phone+'</span>':'')+
+          '<span class="slo">Naložit: '+(n-i)+'.</span>'+
+        '</div>'+
+      '</div>'+
+      '<button class="nb" onclick="event.stopPropagation();oNav('+i+')">🧭</button>'+
+      '<button class="db" onclick="event.stopPropagation();delStop('+i+')">🗑</button>'+
+      '<div class="ck" onclick="event.stopPropagation();tog('+i+')"></div>';
+    l.appendChild(div);
+  });
+  let tk=0,p=depot;
+  stops.forEach(s=>{tk+=dist(p,s.coords)*ROAD;p=s.coords;});
+  $('sKm').textContent=Math.round(tk);
+  $('rT').textContent='Trasa — '+n+' zastávek';
+  $('rM').textContent=Math.round(tk)+' km';
+}
+
+function tog(i){
+  const r=$('s'+i);const w=r.classList.contains('done');
+  r.classList.toggle('done');done=w?done-1:done+1;$('sDone').textContent=done;
+  const k=calcKm();$('sKm').textContent=Math.round(k);$('rM').textContent=Math.round(k)+' km zbývá';
+}
+
+function resetD(){
+  document.querySelectorAll('.st.done').forEach(r=>r.classList.remove('done'));
+  done=0;$('sDone').textContent=0;
+  let k=0,p=depot;stops.forEach(s=>{k+=dist(p,s.coords)*ROAD;p=s.coords;});
+  $('sKm').textContent=Math.round(k);$('rM').textContent=Math.round(k)+' km';
+}
+
+function delStop(i){
+  stops.splice(i,1);done=0;
+  $('sDone').textContent=0;
+  const n=stops.length;
+  $('sPkg').textContent=n;$('sSt').textContent=n;
+  render();toast('Smazáno');
+}
+
+function aktualizovat(){
+  if(!stops.length){toast('Žádné zastávky');return;}
+  stops=sweep(stops,depot);done=0;$('sDone').textContent=0;render();toast('Aktualizováno!');
+}
+
+// ===== NAVIGATION =====
+function navAll(){
+  if(!stops.length){toast('Nejdřív zpracuj zásilky');return;}
+  const CHUNK=19; // max waypoints per Mapy.cz URL
+  const chunks=[];
+  for(let i=0;i<stops.length;i+=CHUNK)chunks.push(stops.slice(i,i+CHUNK));
+
+  chunks.forEach((chunk,ci)=>{
+    const startCoords=ci===0
+      ? depot.lng.toFixed(6)+','+depot.lat.toFixed(6)
+      : chunks[ci-1][chunks[ci-1].length-1].coords.lng.toFixed(6)+','+chunks[ci-1][chunks[ci-1].length-1].coords.lat.toFixed(6);
+    const endStop=chunk[chunk.length-1];
+    const end=endStop.coords.lng.toFixed(6)+','+endStop.coords.lat.toFixed(6);
+    const wps=chunk.slice(0,-1).map(s=>s.coords.lng.toFixed(6)+','+s.coords.lat.toFixed(6)).join(';');
+    const url='https://mapy.com/fnc/v1/route?mapset=traffic&start='+startCoords+'&end='+end+(wps?'&waypoints='+encodeURIComponent(wps):'')+' &routeType=car_fast_traffic&navigate=true';
+    setTimeout(()=>window.open(url,'_blank'),ci*600);
+  });
+
+  const count=chunks.length;
+  toast(count===1?'Otevírám Mapy.cz...':'Trasa rozdělena na '+count+' části');
+}
+
+function oNav(i){
+  const s=stops[i];if(!s)return;
+  const lat=s.coords.lat.toFixed(6),lng=s.coords.lng.toFixed(6);
+  $('nDst').textContent=(i+1)+'. '+s.addr;
+  $('nG').href='https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng+'&travelmode=driving';
+  $('nMp').href='https://mapy.com/fnc/v1/route?mapset=traffic&end='+lng+','+lat+'&routeType=car_fast_traffic&navigate=true';
+  $('nW').href='https://waze.com/ul?navigate=yes&ll='+lat+','+lng;
+  $('nP').classList.add('on');
+}
+function cNav(){$('nP').classList.remove('on');}
+
+function exportGPX(){
+  if(!stops.length){toast('Nejdřív zpracuj zásilky');return;}
+  var gpx='<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="One by Allegro" xmlns="http://www.topografix.com/GPX/1/1">\n<rte>\n<n>Trasa One by Allegro</n>\n';
+  gpx+='<rtept lat="'+depot.lat.toFixed(7)+'" lon="'+depot.lng.toFixed(7)+'"><n>DEPO Start</n></rtept>\n';
+  stops.forEach(function(s,i){
+    var name=s.addr.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    gpx+='<rtept lat="'+s.coords.lat.toFixed(7)+'" lon="'+s.coords.lng.toFixed(7)+'"><n>'+(i+1)+'. '+name+'</n><desc>Nalozit: '+(stops.length-i)+'.</desc></rtept>\n';
+  });
+  gpx+='</rte>\n</gpx>';
+  var blob=new Blob([gpx],{type:'application/gpx+xml'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download='trasa-allegro.gpx';a.click();
+  URL.revokeObjectURL(url);
+  toast('GPX staženo — otevři v Mapy.cz');
+}
+
+function copyAll(){
+  var t='One by Allegro — Trasa\n'+stops.length+' zastávek\n\n';
+  stops.forEach(function(s,i){t+=(i+1)+'. '+s.addr+' | Naložit:'+(stops.length-i)+'.\n';});
+  navigator.clipboard.writeText(t).then(function(){toast('Zkopírováno!');}).catch(function(){toast('Chyba kopírování');});
+}
 </script>
 </body>
 </html>
