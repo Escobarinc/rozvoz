@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>One by Allegro — Route Optimizer</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -286,18 +285,60 @@ function sw(t){
   if((t==='vR'||t==='vM')&&map)setTimeout(function(){map.invalidateSize();},100);
 }
 
-// ===== OCR =====
+// ===== OCR (images) + PDF.js (PDF files) =====
 function doOCR(inp){
   var file=inp.files[0];if(!file)return;
-  $('upTxt').textContent=file.name+' — odesílám...';
+  $('upTxt').textContent=file.name+' — zpracovávám...';
   $('ocrBg').style.display='block';
-  $('ocrBar').style.width='20%';
+  $('ocrBar').style.width='10%';
   $('ocrS').style.display='block';
-  $('ocrS').textContent='Odesílám do OCR...';
+
+  // PDF → use PDF.js (free, no API limit)
+  if(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')){
+    $('ocrS').textContent='📄 Čtu PDF...';
+    $('ocrBar').style.width='20%';
+    if(typeof pdfjsLib!=='undefined'){
+      try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}catch(e){}
+    }
+    file.arrayBuffer().then(function(buf){
+      $('ocrBar').style.width='40%';
+      return pdfjsLib.getDocument({data:buf}).promise;
+    }).then(function(pdf){
+      var fullText='';var pages=pdf.numPages;var done=0;
+      function nextPage(i){
+        if(i>pages){
+          $('ocrBar').style.width='90%';
+          var addrs=parseAddresses(fullText);
+          $('pI').value=addrs.join('\n');
+          $('ocrBar').style.width='100%';
+          $('ocrS').textContent='✅ '+addrs.length+' adres z PDF ('+pages+' str.)';
+          $('upTxt').textContent=file.name+' — ✅ hotovo';
+          toast(addrs.length+' adres načteno z PDF!');
+          return;
+        }
+        pdf.getPage(i).then(function(page){
+          return page.getTextContent();
+        }).then(function(content){
+          fullText+=content.items.map(function(item){return item.str;}).join(' ')+'\n';
+          $('ocrBar').style.width=(40+((i/pages)*45))+'%';
+          $('ocrS').textContent='📄 Stránka '+i+'/'+pages+'...';
+          nextPage(i+1);
+        });
+      }
+      nextPage(1);
+    }).catch(function(e){
+      $('ocrS').textContent='❌ Chyba PDF: '+e.message;
+      $('ocrBar').style.width='100%';
+    });
+    return;
+  }
+
+  // Image → use OCR.space
+  $('ocrS').textContent='📸 Odesílám do OCR...';
   var fd=new FormData();
   fd.append('file',file);
-  fd.append('apikey','K88888888888888');
-  fd.append('language','cze');
+  fd.append('apikey','K84184093188957');
+  fd.append('language','Czech');
   fd.append('isOverlayRequired','false');
   fd.append('detectOrientation','true');
   fd.append('scale','true');
@@ -307,15 +348,15 @@ function doOCR(inp){
     .then(function(r){return r.json();})
     .then(function(d){
       $('ocrBar').style.width='100%';
-      if(d.IsErroredOnProcessing){$('ocrS').textContent='Chyba OCR';return;}
+      if(d.IsErroredOnProcessing){$('ocrS').textContent='❌ Chyba OCR';return;}
       var txt=(d.ParsedResults&&d.ParsedResults[0])?d.ParsedResults[0].ParsedText:'';
       var addrs=parseAddresses(txt);
       $('pI').value=addrs.join('\n');
-      $('ocrS').textContent='✓ '+addrs.length+' adres rozpoznáno';
-      $('upTxt').textContent=file.name+' — ✓ hotovo';
+      $('ocrS').textContent='✅ '+addrs.length+' adres rozpoznáno';
+      $('upTxt').textContent=file.name+' — ✅ hotovo';
       toast(addrs.length+' adres načteno!');
     })
-    .catch(function(){$('ocrS').textContent='Chyba připojení';});
+    .catch(function(){$('ocrS').textContent='❌ Chyba připojení';});
 }
 
 // ===== PARSER =====
@@ -405,12 +446,54 @@ function dist(a,b){
   return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
-// ===== 2-OPT =====
+// ===== NEAREST NEIGHBOR + 2-OPT (open path, no return to depot) =====
 function optimizeRoute(pts,dep){
   if(pts.length<=1)return pts;
-  return pts.slice().sort(function(a,b){
-    return dist(dep,a.coords)-dist(dep,b.coords);
-  });
+  // Step 1: Nearest neighbor from depot
+  var route=[];var remaining=pts.slice();
+  var current=dep;
+  while(remaining.length>0){
+    var bestIdx=0,bestDist=Infinity;
+    for(var i=0;i<remaining.length;i++){
+      var d=dist(current,remaining[i].coords);
+      if(d<bestDist){bestDist=d;bestIdx=i;}
+    }
+    route.push(remaining[bestIdx]);
+    current=remaining[bestIdx].coords;
+    remaining.splice(bestIdx,1);
+  }
+  // Step 2: 2-opt improvement (open path — no return)
+  function routeDist(r){
+    var d2=dist(dep,r[0].coords);
+    for(var i=0;i<r.length-1;i++)d2+=dist(r[i].coords,r[i+1].coords);
+    return d2;
+  }
+  var improved=true,passes=0;
+  while(improved&&passes<80){
+    improved=false;passes++;
+    for(var i=0;i<route.length-1;i++){
+      for(var k=i+1;k<route.length;k++){
+        var newR=route.slice(0,i);
+        for(var j=k;j>=i;j--)newR.push(route[j]);
+        for(var j2=k+1;j2<route.length;j2++)newR.push(route[j2]);
+        if(routeDist(newR)<routeDist(route)-0.001){route=newR;improved=true;}
+      }
+    }
+  }
+  // Step 3: Or-opt — try moving each stop to a better position
+  improved=true;
+  while(improved){
+    improved=false;
+    for(var i=0;i<route.length;i++){
+      for(var j=0;j<route.length;j++){
+        if(j===i||j===i-1)continue;
+        var trial=route.slice();var removed=trial.splice(i,1)[0];
+        var insertAt=j>i?j:j+1;trial.splice(insertAt,0,removed);
+        if(routeDist(trial)<routeDist(route)-0.001){route=trial;improved=true;}
+      }
+    }
+  }
+  return route;
 }
 
 // ===== OV/TOAST =====
@@ -610,7 +693,7 @@ function oNav(i){
   var lat=s.coords.lat.toFixed(6),lng=s.coords.lng.toFixed(6);
   $('nDst').textContent=(i+1)+'. '+s.addr;
   $('nG').href='https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng+'&travelmode=driving';
-  $('nMp').href='https://mapy.com/fnc/v1/route?mapset=traffic&end='+lng+','+lat+'&routeType=car_fast_traffic&navigate=true';
+  $('nMp').href='https://mapy.cz/fnc/v1/route?mapset=traffic&end='+lng+','+lat+'&routeType=car_fast_traffic&navigate=true';
   $('nW').href='https://waze.com/ul?navigate=yes&ll='+lat+','+lng;
   $('nP').classList.add('on');
 }
